@@ -1,4 +1,3 @@
-```python
 from flask import Flask, jsonify
 import requests
 import xml.etree.ElementTree as ET
@@ -8,7 +7,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    url = "https://thanhnien.vn/rss/home.rss"
+    url = "https://dantri.com.vn/rss.htm"
 
     response = requests.get(url, timeout=10)
 
@@ -30,5 +29,3 @@ def index():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-```
-
