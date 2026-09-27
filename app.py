@@ -1,30 +1,18 @@
 from flask import Flask, jsonify
 import requests
-import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
 
 @app.route("/")
 def index():
-    url = "https://vnexpress.net/rss/tin-moi-nhat.rss"
+    url = "https://jsonplaceholder.typicode.com/posts"
 
     response = requests.get(url, timeout=10)
 
-    root = ET.fromstring(response.content)
+    data = response.json()
 
-    news = []
-
-    for item in root.findall(".//item")[:5]:
-        title = item.findtext("title")
-        link = item.findtext("link")
-
-        news.append({
-            "title": title,
-            "link": link
-        })
-
-    return jsonify(news)
+    return jsonify(data[:5])
 
 
 if __name__ == "__main__":
