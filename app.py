@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    url = "https://dantri.com.vn/rss.htm"
+    url = "https://vnexpress.net/rss/tin-moi-nhat.rss"
 
     response = requests.get(url, timeout=10)
 
