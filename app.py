@@ -1,66 +1,77 @@
 from flask import Flask, render_template_string
 import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-URL = "https://www.24h.com.vn/upload/rss/bongda.rss"
-HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
+URL = "https://www.24h.com.vn/"
 
-# Tin mẫu dùng khi không lấy được RSS thật (để test deploy vẫn luôn có nội dung)
-SAMPLE = [
-    ("Real Madrid thắng đậm 3-0", "https://www.24h.com.vn/bong-da-c48.html"),
-    ("Man City đánh bại Arsenal", "https://www.24h.com.vn/bong-da-c48.html"),
-    ("Việt Nam vào chung kết", "https://www.24h.com.vn/bong-da-c48.html"),
-]
-
-HTML = """
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Tin Bóng Đá 24h</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Tin tức 24h</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+        h1 { color: #d32f2f; }
+        ul { list-style: none; padding: 0; }
+        li { margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 12px; }
+        a { text-decoration: none; color: #1a0dab; font-size: 16px; }
+        a:hover { text-decoration: underline; }
+    </style>
 </head>
-<body class="bg-light">
-  <nav class="navbar navbar-dark bg-success mb-4">
-    <div class="container"><span class="navbar-brand">⚽ Tin Bóng Đá 24h</span></div>
-  </nav>
-  <div class="container">
-    <div class="row g-4">
-      {% for title, link in news %}
-      <div class="col-md-4">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title">{{ title }}</h5>
-            <a href="{{ link }}" target="_blank" class="btn btn-success btn-sm">Đọc bài</a>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
+<body>
+    <h1>Tin mới nhất từ 24h.com.vn</h1>
+    <ul>
+    {% for item in articles %}
+        <li><a href="{{ item.link }}" target="_blank">{{ item.title }}</a></li>
+    {% endfor %}
+    </ul>
 </body>
 </html>
 """
 
 
-@app.route("/")
-def index():
-    news = []
+def get_articles():
+    """Lấy tiêu đề + link bài báo từ trang chủ 24h.com.vn"""
+    articles = []
     try:
-        res = requests.get(URL, headers=HEADERS, timeout=5)
-        for item in res.text.split("<item>")[1:13]:
-            title = item.split("<title>")[1].split("</title>")[0]
-            link = item.split("<link>")[1].split("</link>")[0]
-            news.append((title, link))
-    except Exception:
-        pass
+        resp = requests.get(URL, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
-    if not news:
-        news = SAMPLE
+        seen = set()
+        for a in soup.find_all("a", href=True):
+            title = a.get_text(strip=True)
+            href = a["href"]
 
-    return render_template_string(HTML, news=news)
+            # Bỏ qua link không có tiêu đề hoặc tiêu đề quá ngắn (thường là menu, icon...)
+            if not title or len(title) < 20:
+                continue
+
+            # Chuẩn hóa link tương đối thành link đầy đủ
+            if not href.startswith("http"):
+                href = "https://www.24h.com.vn" + href
+
+            if href in seen:
+                continue
+            seen.add(href)
+
+            articles.append({"title": title, "link": href})
+            if len(articles) >= 15:
+                break
+    except Exception as e:
+        articles.append({"title": f"Lỗi khi tải tin: {e}", "link": "#"})
+
+    return articles
+
+
+@app.route("/")
+def home():
+    articles = get_articles()
+    return render_template_string(HTML_TEMPLATE, articles=articles)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
