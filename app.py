@@ -1,14 +1,16 @@
-from flask import Flask, render_template_string
+iifrom flask import Flask, render_template_string
+import requests
 
 app = Flask(__name__)
 
-NEWS = [
-    ("Real Madrid thắng đậm 3-0", "https://www.24h.com.vn"),
-    ("Man City đánh bại Arsenal", "https://www.24h.com.vn"),
-    ("Việt Nam vào chung kết", "https://www.24h.com.vn"),
-    ("Liverpool giữ ngôi đầu bảng", "https://www.24h.com.vn"),
-    ("Barcelona ký hợp đồng mới", "https://www.24h.com.vn"),
-    ("Bayern hòa kịch tính", "https://www.24h.com.vn"),
+URL = "https://www.24h.com.vn/upload/rss/bongda.rss"
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
+
+# Tin mẫu dùng khi không lấy được RSS thật (để test deploy vẫn luôn có nội dung)
+SAMPLE = [
+    ("Real Madrid thắng đậm 3-0", "https://www.24h.com.vn/bong-da-c48.html"),
+    ("Man City đánh bại Arsenal", "https://www.24h.com.vn/bong-da-c48.html"),
+    ("Việt Nam vào chung kết", "https://www.24h.com.vn/bong-da-c48.html"),
 ]
 
 HTML = """
@@ -44,7 +46,20 @@ HTML = """
 
 @app.route("/")
 def index():
-    return render_template_string(HTML, news=NEWS)
+    news = []
+    try:
+        res = requests.get(URL, headers=HEADERS, timeout=5)
+        for item in res.text.split("<item>")[1:13]:
+            title = item.split("<title>")[1].split("</title>")[0]
+            link = item.split("<link>")[1].split("</link>")[0]
+            news.append((title, link))
+    except Exception:
+        pass
+
+    if not news:
+        news = SAMPLE
+
+    return render_template_string(HTML, news=news)
 
 
 if __name__ == "__main__":
